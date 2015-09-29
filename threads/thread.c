@@ -499,6 +499,17 @@ next_thread_to_run (void)
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
 }
 
+/* Used for ordering sleeping thread list in device/timer.c*/
+bool thread_ticks_less(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+    struct thread *temp_a = list_entry(a, struct thread, elem);
+    struct thread *temp_b = list_entry(b, struct thread, elem);
+    if(temp_a->wakeup_time < temp_b->wakeup_time)
+        return true;
+    else
+        return false;
+
+}
 /* Completes a thread switch by activating the new thread's page
    tables, and, if the previous thread is dying, destroying it.
 
