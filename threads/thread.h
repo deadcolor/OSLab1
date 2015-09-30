@@ -89,8 +89,10 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int64_t wakeup_time;                /* Save wakeup time */
     int nice;                           /* Used in advanced scheduler*/
+    int orig_priority;                  
     int priority;                       /* Priority. */
-    struct list locks;                  /* Store locks */
+    struct thread *wait;                /* Store waiting thread */
+    struct list locks;
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
@@ -135,6 +137,12 @@ void thread_foreach (thread_action_func *, void *);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
+
+//
+void thread_donate_priority (struct thread *);
+void thread_return_priority (struct thread *);
+void thread_update_ready_list (void);
+bool thread_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 int thread_get_nice (void);
 void thread_set_nice (int);

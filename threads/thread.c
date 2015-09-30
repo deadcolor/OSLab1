@@ -209,6 +209,8 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  thread_update_ready_list();
+
   return tid;
 }
 
@@ -343,7 +345,13 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+    enum intr_level old_level = intr_disable();
+    struct thread *cur = thread_current();
+   // int old = cur -> priority;
+
+    cur->orig_priority = new_priority;
+
+    intr_set_level(old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -351,6 +359,54 @@ int
 thread_get_priority (void) 
 {
   return thread_current ()->priority;
+}
+
+/* functions for priority scheduling */
+void
+thread_donate_priority (struct thread *holder)
+{
+    enum intr_level old_level = intr_disable();
+    
+    holder->priority = thread_current()->priority;
+    
+    intr_set_level(old_level);
+}
+
+void
+thread_return_priority (struct thread *holder)
+{
+    struct thread *cur = thread_current();
+    enum intr_level old_level = intr_disable();
+    
+    holder->priority = holder->orig_priority;
+    
+    if(cur->wait == NULL)
+        cur->priority = cur->orig_priority;
+
+    intr_set_level(old_level);
+}
+
+void
+thread_update_ready_list (void)
+{
+    enum intr_level old_level = intr_disable();
+    list_sort(&ready_list, thread_less_func, NULL);
+    if (!list_empty(&ready_list))
+    {   
+        if (thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority)
+            thread_yield();
+    }
+    intr_set_level(old_level);
+}
+
+bool
+thread_less_func (const struct list_elem *a, 
+                const struct list_elem *b, 
+                void *aux UNUSED)
+{
+    struct thread *ta = list_entry (a, struct thread, elem);
+    struct thread *tb = list_entry (b, struct thread, elem);
+    return ta->priority > tb->priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -467,7 +523,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
+  t->orig_priority = priority;
   t->priority = priority;
+  t->wait = NULL;
+  list_init(&t->locks);
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
 }
