@@ -68,8 +68,10 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
+      list_insert_ordered (&sema->waiters, &thread_current ()->elem, thread_less_func, NULL);
+      //printf("seme_down/cur: %s\n", thread_current()->name);
       thread_block ();
+      //printf("cur: %s\n", thread_current()->name);
     }
   sema->value--;
   intr_set_level (old_level);
@@ -113,10 +115,13 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-  if (!list_empty (&sema->waiters)) 
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
-                                struct thread, elem));
+  if (!list_empty (&sema->waiters)){
+      list_sort(&sema->waiters, thread_less_func, NULL);
+      thread_unblock (list_entry (list_pop_front (&sema->waiters), struct thread, elem));
+  }
+
   sema->value++;
+  thread_update_ready_list();
   intr_set_level (old_level);
 }
 
@@ -192,21 +197,34 @@ lock_init (struct lock *lock)
 void
 lock_acquire (struct lock *lock)
 {
+  struct thread *cur = thread_current();
+  struct thread *wait;
+
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
-  if(lock->holder != NULL)
+  if(lock->semaphore.value == 0)
   {
-      thread_current()->wait = lock->holder;
-      
-      if(lock->holder->priority < thread_current()->priority)
+      cur->wait = lock->holder;
+      wait = cur->wait;
+      /*
+      printf("cur: %s\n", thread_current()->name);
+      printf("holder: %s\n", lock->holder->name);
+      printf("wait: %s\n", thread_current()->wait->name);
+      */
+      if(cur->wait && wait->priority < cur->priority)
       {
-          thread_donate_priority(lock->holder);
+          //wait = cur->wait;
+          thread_donate_priority(wait);
+          //cur = wait;
       }
   }
+
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+  //printf("holder: %s", lock->holder->name);
+  
   thread_update_ready_list();
 }
 
@@ -241,8 +259,12 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
-  thread_current()->wait = NULL;
-  thread_return_priority(lock->holder);
+  if(thread_current()->wait == lock->holder)
+  {
+    thread_current()->wait = NULL;
+    thread_return_priority(lock->holder);
+    //printf("cur->wait == holder");
+  }
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);

@@ -318,7 +318,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered (&ready_list, &cur->elem, thread_less_func, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -351,6 +351,10 @@ thread_set_priority (int new_priority)
 
     cur->orig_priority = new_priority;
 
+    if(cur->wait == NULL)
+        cur->priority = new_priority;
+    thread_update_ready_list();
+
     intr_set_level(old_level);
 }
 
@@ -367,7 +371,11 @@ thread_donate_priority (struct thread *holder)
 {
     enum intr_level old_level = intr_disable();
     
+    //printf("holder: %d, cur: %d\n", holder->priority, thread_current()->priority);
     holder->priority = thread_current()->priority;
+    //list_sort(&ready_list, thread_less_func, NULL);
+    
+    //printf("holder: %d, cur: %d\n", holder->priority, thread_current()->priority);
     
     intr_set_level(old_level);
 }
@@ -380,7 +388,7 @@ thread_return_priority (struct thread *holder)
     
     holder->priority = holder->orig_priority;
     
-    if(cur->wait == NULL)
+    if(cur->wait == holder)
         cur->priority = cur->orig_priority;
 
     intr_set_level(old_level);
@@ -390,11 +398,14 @@ void
 thread_update_ready_list (void)
 {
     enum intr_level old_level = intr_disable();
-    list_sort(&ready_list, thread_less_func, NULL);
+
+    //printf("start thread_update_ready_list");
+
     if (!list_empty(&ready_list))
     {   
-        if (thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority)
-            thread_yield();
+        list_sort(&ready_list, thread_less_func, NULL);
+
+        thread_yield();
     }
     intr_set_level(old_level);
 }
