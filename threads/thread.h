@@ -90,6 +90,7 @@ struct thread
     int64_t wakeup_time;                /* Save wakeup time */
     int nice;                           /* Used in advanced scheduler*/
     int priority;                       /* Priority. */
+    int recent_cpu;                     /* Used in advanced scheduler, recen cpu */
     struct list locks;                  /* Store locks */
     struct list_elem allelem;           /* List element for all threads list. */
 

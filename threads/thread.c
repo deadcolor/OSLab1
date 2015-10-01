@@ -11,6 +11,10 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+
+//User added header file
+#include "threads/fixed_point.h"
+
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -58,6 +62,7 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
+int load_avg;           //Used in advanced scheduler, load average
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -109,6 +114,8 @@ thread_start (void)
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
   thread_create ("idle", PRI_MIN, idle, &idle_started);
+
+  load_avg=INTtoFP(0);      //initialize load_average to 0 in fixed point
 
   /* Start preemptive thread scheduling. */
   intr_enable ();
@@ -355,33 +362,35 @@ thread_get_priority (void)
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED) 
+thread_set_nice (int nice) 
 {
-  /* Not yet implemented. */
+    /* Not yet implemented. */
+    enum intr_level old_level = intr_disable();
+    thread_current()->nice = nice;
+    //mlfqs_priority_update();
+    //check_maxPriority();
+    intr_set_level(old_level);
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+    return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return FP_ROUND(MUL_FP_INT(load_avg,100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+    return FP_ROUND(MUL_FP_INT(thread_current()->recent_cpu,100));
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -467,7 +476,12 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
+
+  t->nice = 0;
   t->priority = priority;
+  t->recent_cpu = INTtoFP(0);
+
+  list_init(&t->locks);
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
 }
