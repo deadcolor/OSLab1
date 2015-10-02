@@ -90,8 +90,10 @@ struct thread
     int64_t wakeup_time;                /* Save wakeup time */
     int nice;                           /* Used in advanced scheduler*/
     int priority;                       /* Priority. */
+    int donated_priority;               /* Donated Priority. */
     int recent_cpu;                     /* Used in advanced scheduler, recen cpu */
     struct list locks;                  /* Store locks */
+    struct thread *wait;                /* waiting for lock */
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
@@ -135,7 +137,14 @@ typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
 
 int thread_get_priority (void);
+int thread_get_priority_arg (struct thread *);
 void thread_set_priority (int);
+
+/* Priority Scheduling */
+void thread_donate_priority (struct thread *, struct thread *);
+void thread_recall_priority (struct thread *);
+void thread_update_ready_list(void);
+bool thread_priority_cmp (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
