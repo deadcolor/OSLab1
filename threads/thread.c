@@ -371,7 +371,7 @@ thread_set_priority (int new_priority)
     if(old > new_priority && !donation)
     {
         thread_update_ready_list();
-       	thread_preempt();
+       	 thread_preempt();
     }
 
     intr_set_level(old_level);
@@ -403,15 +403,18 @@ thread_get_priority_arg (struct thread *t)
 void
 thread_donate_priority(struct thread *donor, struct thread *donee)
 {
-    if(donor -> donated_priority == 0)
-        donee -> donated_priority = donor -> priority;
-    else
-        donee -> donated_priority = donor -> donated_priority;
-    //
-    //thread_unblock(donee);
+		struct thread *cur = donor;
+		struct thread *wait = donee;
+		
+		while(wait != NULL)
+		{
+				wait -> donated_priority = thread_get_priority_arg(cur);
+				
+				cur = wait;
+				wait = cur->wait;
+		}
+        
     thread_update_ready_list();
-    //thread_unblock(donee);
-    //thread_yield();
 }
 
 /* return priority */

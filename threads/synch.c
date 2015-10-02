@@ -119,9 +119,7 @@ sema_up (struct semaphore *sema)
   {
   	list_sort(&sema->waiters, thread_priority_cmp, NULL);
     thread_unblock (list_entry (list_pop_front (&sema->waiters), struct thread, elem));
-    thread_preempt();
-//    if(thread_get_priority_arg(thread_current()) < thread_get_priority_arg(list_entry (list_pop_front (&sema->waiters), struct thread, elem)))
-    	
+    thread_preempt();  	
   }
   
   sema->value++;
@@ -339,6 +337,27 @@ cond_wait (struct condition *cond, struct lock *lock)
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to signal a condition variable within an
    interrupt handler. */
+   
+bool
+cond_waiters_cmp (const struct list_elem *a, 
+									const struct list_elem *b, 
+									void *aux UNUSED)
+{
+	const struct semaphore_elem *sea = list_entry(a, struct semaphore_elem, elem);
+	const struct semaphore_elem *seb = list_entry(a, struct semaphore_elem, elem);
+	
+	const struct list *wait1 = &sea->semaphore.waiters;
+	const struct list *wait2 = &seb->semaphore.waiters;
+	
+	const struct list_elem *e1 = list_begin(wait1);
+	const struct list_elem *e2 = list_begin(wait2);	
+	
+	struct thread *ta = list_entry (e1, struct thread, elem);
+	struct thread *tb = list_entry (e2, struct thread, elem);
+	
+	return thread_get_priority_arg(ta) > thread_get_priority_arg(tb);
+}
+
 void
 cond_signal (struct condition *cond, struct lock *lock UNUSED) 
 {
@@ -346,10 +365,13 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (lock_held_by_current_thread (lock));
-
-  if (!list_empty (&cond->waiters)) 
+	
+  if (!list_empty (&cond->waiters))
+  { 
+  	list_sort(&cond->waiters, cond_waiters_cmp, NULL);
     sema_up (&list_entry (list_pop_front (&cond->waiters),
                           struct semaphore_elem, elem)->semaphore);
+  }
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
