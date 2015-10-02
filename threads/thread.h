@@ -142,6 +142,15 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+/* Used in advanced Scheduler with mlfqs options*/
+void mlfqs_update_load_avg (void);              //update load_avg
+void mlfqs_update_recent_cpu(struct thread *t); //update thread's recent_cpu
+void mlfqs_update_priority(struct thread *t);   //update thread's priority
+void mlfqs_incr_recent_cpu(void);                   //increase current thread's recent cpu by 1
+
+void mlfqs_updates_all(void);                 //recalculate every second
+void chkCurrentPriorityHigh(void);                    //check current thread's priority is highest
+
 /* Used for setting order in list*/
 bool thread_ticks_less(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 

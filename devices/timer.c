@@ -94,16 +94,13 @@ void
 timer_sleep (int64_t ticks) 
 {
   int64_t start = timer_ticks ();
-  enum intr_level old_level;
+  enum intr_level old_level=intr_disable();
   struct thread *sleepedThread = thread_current();
 
   //If ticks is not positive, don't sleep
   if(ticks<=0)
       return;
 
-  ASSERT (intr_get_level() == INTR_ON);
-
-  old_level = intr_disable();
   sleepedThread->wakeup_time = start + ticks;
   list_insert_ordered (&sleeping_thread,&sleepedThread->elem,thread_ticks_less,NULL);  //Sleeping thread list insert
   thread_block();
@@ -187,8 +184,23 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
-  timer_wakeup_thread();
   thread_tick ();
+  timer_wakeup_thread();
+  
+  if(thread_mlfqs)
+  {
+    mlfqs_incr_recent_cpu();
+    //On every second, recalculate recent_cpu, load_avg, priority
+    if(ticks % TIMER_FREQ == 0)
+    {
+        mlfqs_updates_all();
+    }
+    //On every 4 ticks, recalculate current thread's priority
+    if(ticks % 4 == 0)
+    {
+        mlfqs_update_priority(thread_current());
+    }
+  } 
 }
 
 /* Wakeup thread in sleeping thread list when times over*/
@@ -211,6 +223,7 @@ void timer_wakeup_thread(void)
     }
 
 }
+
 
 /* Returns true if LOOPS iterations waits for more than one timer
    tick, otherwise false. */
