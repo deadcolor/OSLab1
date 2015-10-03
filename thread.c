@@ -217,11 +217,7 @@ thread_create (const char *name, int priority,
   thread_unblock (t);
 	
 	thread_preempt();
-  /*
-  thread_update_ready_list();
-  thread_yield();
-  thread_update_ready_list();
-  */
+
   return tid;
 }
 
@@ -367,7 +363,6 @@ thread_set_priority (int new_priority)
 
     cur->priority = new_priority;
                         
-    //if(old > new_priority && donation < new_priority)
     if(old > new_priority && !donation)
     {
         thread_update_ready_list();
@@ -382,7 +377,7 @@ int
 thread_get_priority (void) 
 {
     struct thread* cur = thread_current();
-    //if (cur->donated_priority != 0)
+
     if (cur->donated_priority != 0)
         return cur -> donated_priority;
     else
